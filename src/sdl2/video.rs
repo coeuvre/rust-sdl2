@@ -69,7 +69,7 @@ pub mod ll {
         SDL_WINDOWEVENT_FOCUS_LOST,
         SDL_WINDOWEVENT_CLOSE
     }
-    
+
     pub type SDL_GLContext = *c_void;
 
     #[deriving(FromPrimitive)]
@@ -257,20 +257,20 @@ impl DisplayMode {
     }
 }
 
-flag_type!(WindowFlags {
-    Fullscreen = ll::SDL_WINDOW_FULLSCREEN,
-    OpenGL = ll::SDL_WINDOW_OPENGL,
-    Shown = ll::SDL_WINDOW_SHOWN,
-    Hidden = ll::SDL_WINDOW_HIDDEN,
-    Borderless = ll::SDL_WINDOW_BORDERLESS,
-    Resizable = ll::SDL_WINDOW_RESIZABLE,
-    Minimized = ll::SDL_WINDOW_MINIMIZED,
-    Maximized = ll::SDL_WINDOW_MAXIMIZED,
-    InputGrabbed = ll::SDL_WINDOW_INPUT_GRABBED,
-    InputFocus = ll::SDL_WINDOW_INPUT_FOCUS,
-    MouseFocus = ll::SDL_WINDOW_MOUSE_FOCUS,
-    FullscreenDesktop = ll::SDL_WINDOW_FULLSCREEN_DESKTOP,
-    Foreign = ll::SDL_WINDOW_FOREIGN
+bitflags!(flags WindowFlags: u32 {
+    static Fullscreen = ll::SDL_WINDOW_FULLSCREEN as u32,
+    static OpenGL = ll::SDL_WINDOW_OPENGL as u32,
+    static Shown = ll::SDL_WINDOW_SHOWN as u32,
+    static Hidden = ll::SDL_WINDOW_HIDDEN as u32,
+    static Borderless = ll::SDL_WINDOW_BORDERLESS as u32,
+    static Resizable = ll::SDL_WINDOW_RESIZABLE as u32,
+    static Minimized = ll::SDL_WINDOW_MINIMIZED as u32,
+    static Maximized = ll::SDL_WINDOW_MAXIMIZED as u32,
+    static InputGrabbed = ll::SDL_WINDOW_INPUT_GRABBED as u32,
+    static InputFocus = ll::SDL_WINDOW_INPUT_FOCUS as u32,
+    static MouseFocus = ll::SDL_WINDOW_MOUSE_FOCUS as u32,
+    static FullscreenDesktop = ll::SDL_WINDOW_FULLSCREEN_DESKTOP as u32,
+    static Foreign = ll::SDL_WINDOW_FOREIGN as u32
 })
 
 #[deriving(Eq)]
@@ -290,7 +290,7 @@ pub enum WindowPos {
 fn unwrap_windowpos (pos: WindowPos) -> ll::SDL_WindowPos {
     match pos {
         PosUndefined => ll::SDL_WINDOWPOS_UNDEFINED,
-        PosCentered => ll::SDL_WINDOWPOS_CENTERED, 
+        PosCentered => ll::SDL_WINDOWPOS_CENTERED,
         Positioned(x) => x as ll::SDL_WindowPos
     }
 }
@@ -338,7 +338,7 @@ impl Window {
                     unwrap_windowpos(y),
                     width as c_int,
                     height as c_int,
-                    window_flags.get()
+                    window_flags.bits()
                 )
             });
 
@@ -369,25 +369,25 @@ impl Window {
     }
 
     pub fn set_display_mode(&self, display_mode: Option<DisplayMode>) -> bool {
-        return unsafe { 
+        return unsafe {
             ll::SDL_SetWindowDisplayMode(
                 self.raw,
                 match display_mode {
                     Some(ref mode) => mem::transmute(&mode.to_ll()),
-                    None => ptr::null() 
+                    None => ptr::null()
                 }
-            ) == 0 
+            ) == 0
         }
     }
 
     pub fn get_display_mode(&self, display_mode: &DisplayMode) -> Result<DisplayMode, ~str> {
         let dm = empty_sdl_display_mode();
 
-        let result = unsafe { 
+        let result = unsafe {
             ll::SDL_GetWindowDisplayMode(
                 self.raw,
                 &display_mode.to_ll()
-            ) == 0 
+            ) == 0
         };
 
         if result {
@@ -406,8 +406,10 @@ impl Window {
     }
 
     pub fn get_flags(&self) -> WindowFlags {
-        let raw = unsafe { ll::SDL_GetWindowFlags(self.raw) };
-        WindowFlags::new(raw)
+        unsafe {
+            let raw = ll::SDL_GetWindowFlags(self.raw);
+            WindowFlags::from_bits(raw).unwrap()
+        }
     }
 
     pub fn set_title(&self, title: &str) {
@@ -415,7 +417,7 @@ impl Window {
             unsafe { ll::SDL_SetWindowTitle(self.raw, buff) }
         })
     }
-    
+
     pub fn get_title(&self) -> ~str {
         unsafe {
             let cstr = ll::SDL_GetWindowTitle(self.raw);

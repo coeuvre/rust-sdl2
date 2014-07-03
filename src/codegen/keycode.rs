@@ -1,4 +1,5 @@
 use std::io::{IoResult,Writer};
+use std::path::BytesContainer;
 use super::get_writer;
 
 struct Key {
@@ -6,17 +7,22 @@ struct Key {
     ident: &'static str,
 }
 
-impl Ord for Key {
-    fn lt (&self, other: &Key) -> bool {
-        if self.code < other.code {
-            true
-        } else {
-            false
+impl PartialOrd for Key {
+    fn partial_cmp(&self, other: &Key) -> Option<Ordering> {
+        match (!self.lt(other), !other.lt(self)) {
+            (false, false) => None,
+            (false, true) => Some(Less),
+            (true, false) => Some(Greater),
+            (true, true) => Some(Equal),
         }
+    }
+
+    fn lt (&self, other: &Key) -> bool {
+        self.code < other.code
     }
 }
 
-impl Eq for Key {
+impl PartialEq for Key {
     fn eq (&self, other: &Key) -> bool {
         if self.code == other.code {
             true
@@ -26,7 +32,7 @@ impl Eq for Key {
     }
 }
 
-impl TotalOrd for Key {
+impl Ord for Key {
     fn cmp(&self, other: &Key) -> Ordering {
         if self.code < other.code {
             Less
@@ -35,21 +41,21 @@ impl TotalOrd for Key {
         } else { Equal }
     }
 }
-impl TotalEq for Key {
+impl Eq for Key {
 }
 
-
+#[allow(non_snake_case_functions)]
 fn Key(code: uint, ident: &'static str) -> Key {
     Key { code: code, ident: ident }
 }
 
 impl Key {
-    fn ident(&self) -> ~str {
-        self.ident.to_owned()
+    fn ident(&self) -> String {
+        self.ident.to_string()
     }
 
-    fn padded_ident(&self) -> ~str {
-        self.ident() + " ".repeat(unsafe { longest_ident } - self.ident().len())
+    fn padded_ident(&self) -> String {
+        self.ident().append(" ".repeat(unsafe { longest_ident } - self.ident().len()).as_slice())
     }
 
 }
@@ -309,21 +315,21 @@ use std::hash::sip::SipState;
 use std::num::FromPrimitive;
 use std::num::ToPrimitive;
 
-#[deriving(Eq, TotalEq, Show)]
+#[deriving(PartialEq, Eq, Show)]
 pub enum KeyCode {
 ".as_bytes()));
     for &entry in entries.iter() {
-        try!(out.write(format!("    {} = {},\n", entry.padded_ident(), entry.code).into_bytes()));
+        try!(out.write(format!("    {} = {},\n", entry.padded_ident(), entry.code).container_as_bytes()));
     }
 
     try!(out.write("
 }
 
 impl Hash for KeyCode {
-   #[inline] 
+   #[inline]
     fn hash(&self, state: &mut SipState) {
 	self.code().hash(state);
-    } 
+    }
 }
 
 impl KeyCode {
@@ -332,7 +338,7 @@ impl KeyCode {
         match *self {
 ".as_bytes()));
     for &entry in entries.iter() {
-        try!(out.write(format!("            {} => {},\n", entry.padded_ident(), entry.code).into_bytes()));
+        try!(out.write(format!("            {} => {},\n", entry.padded_ident(), entry.code).container_as_bytes()));
     }
     try!(out.write("
         }
@@ -344,9 +350,9 @@ impl ToPrimitive for KeyCode {
 ".as_bytes()));
     let types = vec!("i64", "u64", "int");
     for primitive_type in types.iter() {
-        try!(out.write(format!("fn to_{}(&self) -> Option<{}> \\{
+        try!(out.write(format!("fn to_{}(&self) -> Option<{}> {{
             Some(self.code() as {})
-        \\}\n", *primitive_type, *primitive_type, *primitive_type).into_bytes()));
+        }}\n", *primitive_type, *primitive_type, *primitive_type).container_as_bytes()));
     }
 
 try!(out.write("
@@ -362,11 +368,11 @@ impl FromPrimitive for KeyCode {
 ".as_bytes()));
     for primitive_type in types.iter() {
         try!(out.write(format!("
-    fn from_{}(n: {}) -> Option<KeyCode> \\{
-        match n \\{
-", *primitive_type, *primitive_type).into_bytes()));
+    fn from_{}(n: {}) -> Option<KeyCode> {{
+        match n {{
+", *primitive_type, *primitive_type).container_as_bytes()));
         for &entry in entries.iter() {
-            try!(out.write(format!("            {} => Some({}),\n", entry.code, entry.ident()).into_bytes()));
+            try!(out.write(format!("            {} => Some({}),\n", entry.code, entry.ident()).container_as_bytes()));
         }
         try!(out.write("
                 _   => { Some(UnknownKey) }

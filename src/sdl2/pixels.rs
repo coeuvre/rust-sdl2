@@ -14,7 +14,7 @@ pub mod ll {
 
     pub struct SDL_Palette {
         pub ncolors: c_int,
-        pub colors: *SDL_Color,
+        pub colors: *const SDL_Color,
         pub version: uint32_t,
         pub refcount: c_int
     }
@@ -22,7 +22,7 @@ pub mod ll {
     #[allow(uppercase_variables)]
     pub struct SDL_PixelFormat {
         pub format: SDL_PixelFormatFlag,
-        pub palette: *SDL_Palette,
+        pub palette: *const SDL_Palette,
         pub BitsPerPixel: uint8_t,
         pub BytesPerPixel: uint8_t,
         pub padding: [uint8_t, ..2],
@@ -39,7 +39,7 @@ pub mod ll {
         pub Bshift: uint8_t,
         pub Ashift: uint8_t,
         pub refcount: c_int,
-        pub next: *SDL_PixelFormat
+        pub next: *const SDL_PixelFormat
     }
 
     pub type SDL_PixelFormatFlag = uint32_t;
@@ -81,18 +81,20 @@ pub mod ll {
     pub static SDL_PIXELFORMAT_YVYU: SDL_PixelFormatFlag = 0x55595659;
 
     extern "C" {
-        pub fn SDL_GetRGB(pixel: uint32_t, format: *SDL_PixelFormat, r: *uint8_t, g: *uint8_t, b: *uint8_t);
-        pub fn SDL_GetRGBA(pixel: uint32_t, format: *SDL_PixelFormat, r: *uint8_t, g: *uint8_t, b: *uint8_t, a: *uint8_t);
-        pub fn SDL_MapRGB(format: *SDL_PixelFormat, r: uint8_t, g: uint8_t, b: uint8_t) -> uint32_t;
-        pub fn SDL_MapRGBA(format: *SDL_PixelFormat, r: uint8_t, g: uint8_t, b: uint8_t, a: uint8_t) -> uint32_t;
+        pub fn SDL_GetRGB(pixel: uint32_t, format: *const SDL_PixelFormat, r: *const uint8_t, g: *const uint8_t, b: *const uint8_t);
+        pub fn SDL_GetRGBA(pixel: uint32_t, format: *const SDL_PixelFormat, r: *const uint8_t, g: *const uint8_t, b: *const uint8_t, a: *const uint8_t);
+        pub fn SDL_MapRGB(format: *const SDL_PixelFormat, r: uint8_t, g: uint8_t, b: uint8_t) -> uint32_t;
+        pub fn SDL_MapRGBA(format: *const SDL_PixelFormat, r: uint8_t, g: uint8_t, b: uint8_t, a: uint8_t) -> uint32_t;
     }
 }
-#[deriving(Eq)] #[allow(raw_pointer_deriving)]
+#[deriving(PartialEq)] #[allow(raw_pointer_deriving)]
 pub struct Palette {
-    pub raw: *ll::SDL_Palette
+    raw: *const ll::SDL_Palette
 }
 
-#[deriving(Eq)]
+impl_raw_accessors!(Palette, *const ll::SDL_Palette)
+
+#[deriving(PartialEq)]
 pub enum Color {
     RGB(u8, u8, u8),
     RGBA(u8, u8, u8, u8)
@@ -130,12 +132,15 @@ impl rand::Rand for Color {
     }
 }
 
-#[deriving(Eq)] #[allow(raw_pointer_deriving)]
+#[deriving(PartialEq)] #[allow(raw_pointer_deriving)]
 pub struct PixelFormat {
-    pub raw: *ll::SDL_PixelFormat
+    raw: *const ll::SDL_PixelFormat
 }
 
-#[deriving(Eq, Show, FromPrimitive)]
+impl_raw_accessors!(PixelFormat, *const ll::SDL_PixelFormat)
+impl_raw_constructor!(PixelFormat -> PixelFormat (raw: *const ll::SDL_PixelFormat))
+
+#[deriving(PartialEq, Show, FromPrimitive)]
 pub enum PixelFormatFlag {
     Unknown = ll::SDL_PIXELFORMAT_UNKNOWN as int,
     Index1LSB = ll::SDL_PIXELFORMAT_INDEX1LSB as int,

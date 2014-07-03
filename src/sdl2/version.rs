@@ -16,13 +16,13 @@ pub mod ll {
     }
     extern "C" {
         pub fn SDL_GetVersion(ver: *mut SDL_version);
-        pub fn SDL_GetRevision() -> *c_char;
+        pub fn SDL_GetRevision() -> *const c_char;
         pub fn SDL_GetRevisionNumber() -> c_int;
     }
 }
 
 /// A structure that contains information about the version of SDL in use.
-#[deriving(Eq, Clone)]
+#[deriving(PartialEq, Clone)]
 pub struct Version {
     /// major version
     pub major: int,
@@ -34,7 +34,7 @@ pub struct Version {
 
 impl Version {
     /// Convert a raw *SDL_version to Version.
-    pub fn from_ll(sv: *ll::SDL_version) -> Version {
+    pub fn from_ll(sv: *const ll::SDL_version) -> Version {
         unsafe {
             let v = *sv;
             Version{ major: v.major as int, minor: v.minor as int, patch: v.patch as int }
@@ -58,10 +58,10 @@ pub fn get_version() -> Version {
 }
 
 /// Get the code revision of SDL that is linked against your program.
-pub fn get_revision() -> ~str {
+pub fn get_revision() -> String {
     unsafe {
         let ret = ll::SDL_GetRevision();
-        CString::new(ret, false).as_str().unwrap().into_owned()
+        CString::new(ret, false).as_str().unwrap().into_string()
     }
 }
 

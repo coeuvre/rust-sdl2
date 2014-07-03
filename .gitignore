@@ -18,3 +18,5 @@ src/sdl2/generated/
 *.swp
 .project
 src/demo/main
+doc/
+target/

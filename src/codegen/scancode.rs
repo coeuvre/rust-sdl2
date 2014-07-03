@@ -1,4 +1,5 @@
 use std::io::{IoResult,Writer};
+use std::path::BytesContainer;
 use super::get_writer;
 
 struct ScanCode {
@@ -6,17 +7,22 @@ struct ScanCode {
     ident: &'static str,
 }
 
-impl Ord for ScanCode {
-    fn lt (&self, other: &ScanCode) -> bool {
-        if self.code < other.code {
-            true
-        } else {
-            false
+impl PartialOrd for ScanCode {
+    fn partial_cmp(&self, other: &ScanCode) -> Option<Ordering> {
+        match (!self.lt(other), !other.lt(self)) {
+            (false, false) => None,
+            (false, true) => Some(Less),
+            (true, false) => Some(Greater),
+            (true, true) => Some(Equal),
         }
+    }
+
+    fn lt (&self, other: &ScanCode) -> bool {
+        self.code < other.code
     }
 }
 
-impl Eq for ScanCode {
+impl PartialEq for ScanCode {
     fn eq (&self, other: &ScanCode) -> bool {
         if self.code == other.code {
             true
@@ -26,7 +32,7 @@ impl Eq for ScanCode {
     }
 }
 
-impl TotalOrd for ScanCode {
+impl Ord for ScanCode {
     fn cmp(&self, other: &ScanCode) -> Ordering {
         if self.code < other.code {
             Less
@@ -35,20 +41,21 @@ impl TotalOrd for ScanCode {
         } else { Equal }
     }
 }
-impl TotalEq for ScanCode {
+impl Eq for ScanCode {
 }
 
+#[allow(non_snake_case_functions)]
 fn ScanCode(code: uint, ident: &'static str) -> ScanCode {
     ScanCode { code: code, ident: ident }
 }
 
 impl ScanCode {
-    fn ident(&self) -> ~str {
-        self.ident.to_owned()
+    fn ident(&self) -> String {
+        self.ident.to_string()
     }
 
-    fn padded_ident(&self) -> ~str {
-        self.ident() + " ".repeat(unsafe { longest_ident } - self.ident().len())
+    fn padded_ident(&self) -> String {
+        self.ident().append(" ".repeat(unsafe { longest_ident } - self.ident().len()).as_slice())
     }
 
 }
@@ -315,11 +322,11 @@ use std::hash::sip::SipState;
 use std::num::FromPrimitive;
 use std::num::ToPrimitive;
 
-#[deriving(Eq, TotalEq, Show)]
+#[deriving(PartialEq, Eq, Show)]
 pub enum ScanCode {
 ".as_bytes()));
     for &entry in entries.iter() {
-        try!(out.write(format!("    {} = {},\n", entry.padded_ident(), entry.code).into_bytes()));
+        try!(out.write(format!("    {} = {},\n", entry.padded_ident(), entry.code).container_as_bytes()));
     }
 
     try!(out.write("
@@ -338,9 +345,9 @@ impl ScanCode {
         match *self {
 ".as_bytes()));
     for &entry in entries.iter() {
-        try!(out.write(format!("            {} => {},\n", entry.padded_ident(), entry.code).into_bytes()));
+        try!(out.write(format!("            {} => {},\n", entry.padded_ident(), entry.code).container_as_bytes()));
     }
-    
+
     try!(out.write("
         }
     }
@@ -353,9 +360,9 @@ impl ToPrimitive for ScanCode {
 
     let types = vec!("i64", "u64", "int");
     for primitive_type in types.iter() {
-        try!(out.write(format!("fn to_{}(&self) -> Option<{}> \\{
+        try!(out.write(format!("fn to_{}(&self) -> Option<{}> {{
             Some(self.code() as {})
-        \\}\n", *primitive_type, *primitive_type, *primitive_type).into_bytes()));
+        }}\n", *primitive_type, *primitive_type, *primitive_type).container_as_bytes()));
     }
 
 try!(out.write("
@@ -372,14 +379,14 @@ impl FromPrimitive for ScanCode {
 
 	    for primitive_type in types.iter() {
         try!(out.write(format!("
-    fn from_{}(n: {}) -> Option<ScanCode> \\{
-        match n \\{
-", *primitive_type, *primitive_type).into_bytes()));
+    fn from_{}(n: {}) -> Option<ScanCode> {{
+        match n {{
+", *primitive_type, *primitive_type).container_as_bytes()));
 
         for &entry in entries.iter() {
-            try!(out.write(format!("            {} => Some({}),\n", entry.code, entry.ident()).into_bytes()));
+            try!(out.write(format!("            {} => Some({}),\n", entry.code, entry.ident()).container_as_bytes()));
         }
-   
+
         try!(out.write("
                 _   => { Some(UnknownScanCode) }
             }
@@ -388,7 +395,7 @@ impl FromPrimitive for ScanCode {
 
 try!(out.write("
 }".as_bytes()));
-    
+
     try!(out.flush());
     Ok(())
 }

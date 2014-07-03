@@ -1,6 +1,7 @@
 use std::ptr;
 
 use get_error;
+use SdlResult;
 use surface;
 use video;
 
@@ -34,27 +35,28 @@ pub mod ll {
     pub static SDL_QUERY: SDL_MouseState = -1;
 
     extern "C" {
-        pub fn SDL_GetMouseFocus() -> *SDL_Window;
-        pub fn SDL_GetMouseState(x: *c_int, y: *c_int) -> uint32_t;
-        pub fn SDL_GetRelativeMouseState(x: *c_int, y: *c_int) -> uint32_t;
-        pub fn SDL_WarpMouseInWindow(window: *SDL_Window, x: c_int, y: c_int);
+        pub fn SDL_GetMouseFocus() -> *const SDL_Window;
+        pub fn SDL_GetMouseState(x: *const c_int, y: *const c_int) -> uint32_t;
+        pub fn SDL_GetRelativeMouseState(x: *const c_int, y: *const c_int) -> uint32_t;
+        pub fn SDL_WarpMouseInWindow(window: *const SDL_Window, x: c_int, y: c_int);
         pub fn SDL_SetRelativeMouseMode(enabled: SDL_bool) -> c_int;
         pub fn SDL_GetRelativeMouseMode() -> SDL_bool;
-        pub fn SDL_CreateCursor(data: *uint8_t, mask: *uint8_t, w: c_int,
+        pub fn SDL_CreateCursor(data: *const uint8_t, mask: *const uint8_t, w: c_int,
                                       h: c_int, hot_x: c_int, hot_y: c_int) ->
-                  *SDL_Cursor;
-        pub fn SDL_CreateColorCursor(surface: *SDL_Surface, hot_x: c_int,
-                                           hot_y: c_int) -> *SDL_Cursor;
-        pub fn SDL_CreateSystemCursor(id: SDL_SystemCursor) -> *SDL_Cursor;
-        pub fn SDL_SetCursor(cursor: *SDL_Cursor);
-        pub fn SDL_GetCursor() -> *SDL_Cursor;
-        pub fn SDL_GetDefaultCursor() -> *SDL_Cursor;
-        pub fn SDL_FreeCursor(cursor: *SDL_Cursor);
+                  *const SDL_Cursor;
+        pub fn SDL_CreateColorCursor(surface: *const SDL_Surface, hot_x: c_int,
+                                           hot_y: c_int) -> *const SDL_Cursor;
+        pub fn SDL_CreateSystemCursor(id: SDL_SystemCursor) -> *const SDL_Cursor;
+        pub fn SDL_SetCursor(cursor: *const SDL_Cursor);
+        pub fn SDL_GetCursor() -> *const SDL_Cursor;
+        pub fn SDL_GetDefaultCursor() -> *const SDL_Cursor;
+        pub fn SDL_FreeCursor(cursor: *const SDL_Cursor);
         pub fn SDL_ShowCursor(toggle: SDL_MouseState) -> SDL_MouseState;
     }
 }
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
+#[repr(u32)]
 pub enum SystemCursor {
     ArrowCursor = ll::SDL_SYSTEM_CURSOR_ARROW,
     IBeamCursor = ll::SDL_SYSTEM_CURSOR_IBEAM,
@@ -70,9 +72,9 @@ pub enum SystemCursor {
     HandCursor = ll::SDL_SYSTEM_CURSOR_HAND,
 }
 
-#[deriving(Eq)] #[allow(raw_pointer_deriving)] 
+#[deriving(PartialEq)] #[allow(raw_pointer_deriving)]
 pub struct Cursor {
-    raw: *ll::SDL_Cursor,
+    raw: *const ll::SDL_Cursor,
     owned: bool
 }
 
@@ -87,7 +89,7 @@ impl Drop for Cursor {
 }
 
 impl Cursor {
-    pub fn new(data: &[u8], mask: &[u8], width: int, height: int, hot_x: int, hot_y: int) -> Result<Cursor, ~str> {
+    pub fn new(data: &[u8], mask: &[u8], width: int, height: int, hot_x: int, hot_y: int) -> SdlResult<Cursor> {
         unsafe {
             let raw = ll::SDL_CreateCursor(data.as_ptr(),
                                            mask.as_ptr(),
@@ -103,9 +105,9 @@ impl Cursor {
     }
 
     // TODO: figure out how to pass Surface in here correctly
-    pub fn from_surface(surface: &surface::Surface, hot_x: int, hot_y: int) -> Result<Cursor, ~str> {
+    pub fn from_surface(surface: &surface::Surface, hot_x: int, hot_y: int) -> SdlResult<Cursor> {
         unsafe {
-            let raw = ll::SDL_CreateColorCursor(surface.raw, hot_x as i32,
+            let raw = ll::SDL_CreateColorCursor(surface.raw(), hot_x as i32,
                                                 hot_y as i32);
 
             if raw == ptr::null() {
@@ -116,7 +118,7 @@ impl Cursor {
         }
     }
 
-    pub fn from_system(cursor: SystemCursor) -> Result<Cursor, ~str> {
+    pub fn from_system(cursor: SystemCursor) -> SdlResult<Cursor> {
         unsafe {
             let raw = ll::SDL_CreateSystemCursor(cursor as u32);
 
@@ -133,7 +135,7 @@ impl Cursor {
     }
 }
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 pub enum Mouse {
     LeftMouse,
     MiddleMouse,
@@ -158,7 +160,7 @@ pub fn wrap_mouse(bitflags: u8) -> Mouse {
         3 => RightMouse,
         4 => X1Mouse,
         5 => X2Mouse,
-        _ => UnknownMouse(bitflags) 
+        _ => UnknownMouse(bitflags)
     }
 }
 
@@ -167,7 +169,7 @@ pub fn get_mouse_focus() -> Option<video::Window> {
     if raw == ptr::null() {
         None
     } else {
-        Some(video::Window{ raw: raw, owned: false })
+        unsafe { Some(video::Window::from_ll(raw, false)) }
     }
 }
 
@@ -190,7 +192,7 @@ pub fn get_relative_mouse_state() -> (MouseState, int, int) {
 }
 
 pub fn warp_mouse_in_window(window: &video::Window, x: i32, y: i32) {
-    unsafe { ll::SDL_WarpMouseInWindow(window.raw, x, y); }
+    unsafe { ll::SDL_WarpMouseInWindow(window.raw(), x, y); }
 }
 
 pub fn set_relative_mouse_mode(on: bool) {

@@ -1,5 +1,4 @@
-use std::mem;
-use std::str;
+use std::c_str::CString;
 
 // Setup linking for all targets.
 #[cfg(target_os="macos")]
@@ -48,8 +47,8 @@ pub mod ll {
     extern "C" {
         pub fn SDL_ClearError();
         pub fn SDL_Error(code: SDL_errorcode) -> c_int;
-        pub fn SDL_SetError(fmt: *c_char) -> c_int;
-        pub fn SDL_GetError() -> *c_char;
+        pub fn SDL_SetError(fmt: *const c_char) -> c_int;
+        pub fn SDL_GetError() -> *const c_char;
 
         //SDL.h
         pub fn SDL_Init(flags: uint32_t) -> c_int;
@@ -75,7 +74,7 @@ bitflags!(flags InitFlag: u32 {
     static InitEverything = ll::SDL_INIT_EVERYTHING
 })
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 pub enum Error {
     NoMemError = ll::SDL_ENOMEM as int,
     ReadError = ll::SDL_EFREAD as int,
@@ -83,6 +82,8 @@ pub enum Error {
     SeekError = ll::SDL_EFSEEK as int,
     UnsupportedError = ll::SDL_UNSUPPORTED as int
 }
+
+pub type SdlResult<T> = Result<T, String>;
 
 pub fn init(flags: InitFlag) -> bool {
     unsafe {
@@ -111,11 +112,10 @@ pub fn was_inited(flags: InitFlag) -> InitFlag {
     }
 }
 
-pub fn get_error() -> ~str {
+pub fn get_error() -> String {
     unsafe {
-        let cstr = ll::SDL_GetError();
-
-        str::raw::from_c_str(mem::transmute_copy(&cstr))
+        let cstr = CString::new(ll::SDL_GetError(), false);
+        cstr.as_str().unwrap().into_string()
     }
 }
 

@@ -7,7 +7,7 @@ use std::vec::Vec;
 
 struct ParseBranch {
     matches: Vec<u8>,
-    result: Option<~str>,
+    result: Option<String>,
     children: Vec<ParseBranch>,
 }
 
@@ -28,7 +28,7 @@ pub fn branchify(options: &[(&str, &str)], case_sensitive: bool) -> Vec<ParseBra
     fn go_down_moses(branch: &mut ParseBranch, mut chariter: Chars, result: &str, case_sensitive: bool) {
         match chariter.next() {
             Some(c) => {
-                let first_case = if case_sensitive { c as u8 } else { c.to_ascii().to_upper().to_byte() };
+                let first_case = if case_sensitive { c as u8 } else { c.to_ascii().to_uppercase().to_byte() };
                 for next_branch in branch.children.mut_iter() {
                     if next_branch.matches.as_slice()[0] == first_case {
                         go_down_moses(next_branch, chariter, result, case_sensitive);
@@ -38,7 +38,7 @@ pub fn branchify(options: &[(&str, &str)], case_sensitive: bool) -> Vec<ParseBra
                 let mut subbranch = ParseBranch::new();
                 subbranch.matches.push(first_case);
                 if !case_sensitive {
-                    let second_case = c.to_ascii().to_lower().to_byte();
+                    let second_case = c.to_ascii().to_lowercase().to_byte();
                     if first_case != second_case {
                         subbranch.matches.push(second_case);
                     }
@@ -49,7 +49,7 @@ pub fn branchify(options: &[(&str, &str)], case_sensitive: bool) -> Vec<ParseBra
             },
             None => {
                 assert!(branch.result.is_none());
-                branch.result = Some(result.to_owned());
+                branch.result = Some(result.to_string());
             },
         }
     };
@@ -98,7 +98,7 @@ pub fn generate_branchified_method(
         let s = format!($($x)*);
         let result = writer.write(indentstr.as_bytes())
         .and(writer.write(s.as_bytes()))
-        .and(writer.write(bytes!("\n")));
+        .and(writer.write(b"\n"));
 
         match result {
             Ok(_)  => {},
@@ -110,41 +110,41 @@ pub fn generate_branchified_method(
             end: &str, max_len: &str, valid: &str, unknown: &str) {
         for &c in branch.matches.iter() {
             let next_prefix = format!("{}{}", prefix, c as char);
-            wf!("Some(b) if b == '{}' as u8 => match {} \\{", c as char, read_call);
+            wf!("Some(b) if b == '{}' as u8 => match {} {{", c as char, read_call);
             for b in branch.children.iter() {
-                r(writer, b, next_prefix, indent + 1, read_call, end, max_len, valid, unknown);
+                r(writer, b, next_prefix.as_slice(), indent + 1, read_call, end, max_len, valid, unknown);
             }
             match branch.result {
                 Some(ref result) => wf!("    Some(b) if b == SP => return Some({}),", *result),
                 None => wf!("    Some(b) if b == SP => return Some({}),",
-                                unknown.replace("{}", format!("~\"{}\"", next_prefix))),
+                                unknown.replace("{}", format!("~\"{}\"", next_prefix.as_slice()).as_slice())),
             }
-            wf!("    Some(b) if {} => (\"{}\", b),", valid, next_prefix);
+            wf!("    Some(b) if {} => (\"{}\", b),", valid, next_prefix.as_slice());
             wf!("    _ => return None,");
-            wf!("\\},");
+            wf!("}},");
         }
     }
-    wf!("let (s, next_byte) = match {} \\{", read_call);
+    wf!("let (s, next_byte) = match {} {{", read_call);
     for b in branches.iter() {
         r(writer, b, "", indent + 1, read_call, end, max_len, valid, unknown);
     }
     wf!("    Some(b) if {} => (\"\", b),", valid);
     wf!("    _ => return None,");
-    wf!("\\};");
+    wf!("}};");
     wf!("// OK, that didn't pan out. Let's read the rest and see what we get.");
-    wf!("let mut s = s.to_owned();");
+    wf!("let mut s = s.to_string();");
     wf!("s.push_char(next_byte as char);");
-    wf!("loop \\{");
-    wf!("    match {} \\{", read_call);
+    wf!("loop {{");
+    wf!("    match {} {{", read_call);
     wf!("        Some(b) if b == {} => return Some({}),", end, unknown.replace("{}", "s"));
-    wf!("        Some(b) if {} => \\{", valid);
-    wf!("            if s.len() == {} \\{", max_len);
+    wf!("        Some(b) if {} => {{", valid);
+    wf!("            if s.len() == {} {{", max_len);
     wf!("                // Too long; bad request");
     wf!("                return None;");
-    wf!("            \\}");
+    wf!("            }}");
     wf!("            s.push_char(b as char);");
-    wf!("        \\},");
+    wf!("        }},");
     wf!("        _ => return None,");
-    wf!("    \\}");
-    wf!("\\}");
+    wf!("    }}");
+    wf!("}}");
 }
